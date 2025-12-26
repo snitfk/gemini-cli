@@ -1837,5 +1837,1218 @@ export class UserRepository extends BaseRepository<
 export const userRepository = new UserRepository();
 ```
 
-由于响应长度限制，我会继续在下一个文件中完成剩余内容。让我先提交这部分。
+**步骤 4.4: 创建其他 Repositories** (2 小时)
+
+创建 `src/repositories/workspace.repository.ts`:
+
+```typescript
+import { Workspace, Prisma } from '@prisma/client';
+import { BaseRepository } from './base.repository.js';
+import { prisma } from '../utils/prisma.js';
+
+export class WorkspaceRepository extends BaseRepository<
+  Workspace,
+  Prisma.WorkspaceCreateInput,
+  Prisma.WorkspaceUpdateInput,
+  Prisma.WorkspaceWhereInput,
+  Prisma.WorkspaceWhereUniqueInput
+> {
+  constructor() {
+    super(prisma, 'Workspace');
+  }
+
+  async create(data: Prisma.WorkspaceCreateInput): Promise<Workspace> {
+    return prisma.workspace.create({ data });
+  }
+
+  async findUnique(where: Prisma.WorkspaceWhereUniqueInput): Promise<Workspace | null> {
+    return prisma.workspace.findUnique({ where });
+  }
+
+  async findMany(params: {
+    where?: Prisma.WorkspaceWhereInput;
+    skip?: number;
+    take?: number;
+    orderBy?: Prisma.WorkspaceOrderByWithRelationInput;
+  }): Promise<Workspace[]> {
+    return prisma.workspace.findMany(params);
+  }
+
+  async update(
+    where: Prisma.WorkspaceWhereUniqueInput,
+    data: Prisma.WorkspaceUpdateInput
+  ): Promise<Workspace> {
+    return prisma.workspace.update({ where, data });
+  }
+
+  async delete(where: Prisma.WorkspaceWhereUniqueInput): Promise<Workspace> {
+    return prisma.workspace.delete({ where });
+  }
+
+  async count(where?: Prisma.WorkspaceWhereInput): Promise<number> {
+    return prisma.workspace.count({ where });
+  }
+
+  /**
+   * 获取用户的所有工作区
+   */
+  async findByUserId(userId: string): Promise<Workspace[]> {
+    return this.findMany({
+      where: { userId },
+      orderBy: { lastUsedAt: 'desc' },
+    });
+  }
+
+  /**
+   * 更新最后使用时间
+   */
+  async updateLastUsed(workspaceId: string): Promise<Workspace> {
+    return this.update(
+      { id: workspaceId },
+      { lastUsedAt: new Date() }
+    );
+  }
+
+  /**
+   * 获取活跃工作区数量
+   */
+  async countActiveByUser(userId: string): Promise<number> {
+    return this.count({
+      userId,
+      status: 'ACTIVE',
+    });
+  }
+}
+
+export const workspaceRepository = new WorkspaceRepository();
+```
+
+创建 `src/repositories/chat-session.repository.ts`:
+
+```typescript
+import { ChatSession, Prisma } from '@prisma/client';
+import { BaseRepository } from './base.repository.js';
+import { prisma } from '../utils/prisma.js';
+
+export class ChatSessionRepository extends BaseRepository<
+  ChatSession,
+  Prisma.ChatSessionCreateInput,
+  Prisma.ChatSessionUpdateInput,
+  Prisma.ChatSessionWhereInput,
+  Prisma.ChatSessionWhereUniqueInput
+> {
+  constructor() {
+    super(prisma, 'ChatSession');
+  }
+
+  async create(data: Prisma.ChatSessionCreateInput): Promise<ChatSession> {
+    return prisma.chatSession.create({ data });
+  }
+
+  async findUnique(where: Prisma.ChatSessionWhereUniqueInput): Promise<ChatSession | null> {
+    return prisma.chatSession.findUnique({
+      where,
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          take: 50,
+        },
+      },
+    });
+  }
+
+  async findMany(params: {
+    where?: Prisma.ChatSessionWhereInput;
+    skip?: number;
+    take?: number;
+    orderBy?: Prisma.ChatSessionOrderByWithRelationInput;
+  }): Promise<ChatSession[]> {
+    return prisma.chatSession.findMany(params);
+  }
+
+  async update(
+    where: Prisma.ChatSessionWhereUniqueInput,
+    data: Prisma.ChatSessionUpdateInput
+  ): Promise<ChatSession> {
+    return prisma.chatSession.update({ where, data });
+  }
+
+  async delete(where: Prisma.ChatSessionWhereUniqueInput): Promise<ChatSession> {
+    return prisma.chatSession.delete({ where });
+  }
+
+  async count(where?: Prisma.ChatSessionWhereInput): Promise<number> {
+    return prisma.chatSession.count({ where });
+  }
+
+  /**
+   * 获取工作区的所有会话
+   */
+  async findByWorkspaceId(workspaceId: string): Promise<ChatSession[]> {
+    return this.findMany({
+      where: {
+        workspaceId,
+        status: 'ACTIVE',
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  /**
+   * 增加消息计数
+   */
+  async incrementMessageCount(sessionId: string): Promise<void> {
+    await prisma.chatSession.update({
+      where: { id: sessionId },
+      data: {
+        messageCount: { increment: 1 },
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * 增加 token 计数
+   */
+  async incrementTokenCount(sessionId: string, tokens: number): Promise<void> {
+    await prisma.chatSession.update({
+      where: { id: sessionId },
+      data: {
+        totalTokens: { increment: tokens },
+      },
+    });
+  }
+}
+
+export const chatSessionRepository = new ChatSessionRepository();
+```
+
+创建 `src/repositories/refresh-token.repository.ts`:
+
+```typescript
+import { RefreshToken, Prisma } from '@prisma/client';
+import { BaseRepository } from './base.repository.js';
+import { prisma } from '../utils/prisma.js';
+
+export class RefreshTokenRepository extends BaseRepository<
+  RefreshToken,
+  Prisma.RefreshTokenCreateInput,
+  Prisma.RefreshTokenUpdateInput,
+  Prisma.RefreshTokenWhereInput,
+  Prisma.RefreshTokenWhereUniqueInput
+> {
+  constructor() {
+    super(prisma, 'RefreshToken');
+  }
+
+  async create(data: Prisma.RefreshTokenCreateInput): Promise<RefreshToken> {
+    return prisma.refreshToken.create({ data });
+  }
+
+  async findUnique(where: Prisma.RefreshTokenWhereUniqueInput): Promise<RefreshToken | null> {
+    return prisma.refreshToken.findUnique({ where });
+  }
+
+  async findMany(params: {
+    where?: Prisma.RefreshTokenWhereInput;
+    skip?: number;
+    take?: number;
+    orderBy?: Prisma.RefreshTokenOrderByWithRelationInput;
+  }): Promise<RefreshToken[]> {
+    return prisma.refreshToken.findMany(params);
+  }
+
+  async update(
+    where: Prisma.RefreshTokenWhereUniqueInput,
+    data: Prisma.RefreshTokenUpdateInput
+  ): Promise<RefreshToken> {
+    return prisma.refreshToken.update({ where, data });
+  }
+
+  async delete(where: Prisma.RefreshTokenWhereUniqueInput): Promise<RefreshToken> {
+    return prisma.refreshToken.delete({ where });
+  }
+
+  async count(where?: Prisma.RefreshTokenWhereInput): Promise<number> {
+    return prisma.refreshToken.count({ where });
+  }
+
+  /**
+   * 通过 token 查找
+   */
+  async findByToken(token: string): Promise<RefreshToken | null> {
+    return this.findUnique({ token });
+  }
+
+  /**
+   * 删除用户的所有 token
+   */
+  async deleteAllByUserId(userId: string): Promise<void> {
+    await prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+  }
+
+  /**
+   * 删除过期的 token
+   */
+  async deleteExpired(): Promise<void> {
+    await prisma.refreshToken.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+  }
+
+  /**
+   * 验证 token 是否有效
+   */
+  async isValid(token: string): Promise<boolean> {
+    const refreshToken = await this.findByToken(token);
+    if (!refreshToken) return false;
+    return refreshToken.expiresAt > new Date();
+  }
+}
+
+export const refreshTokenRepository = new RefreshTokenRepository();
+```
+
+创建 `src/repositories/index.ts`:
+
+```typescript
+export { userRepository } from './user.repository.js';
+export { workspaceRepository } from './workspace.repository.js';
+export { chatSessionRepository } from './chat-session.repository.js';
+export { refreshTokenRepository } from './refresh-token.repository.js';
+```
+
+**验证清单 Day 4**:
+- [ ] Prisma Schema 完成并迁移成功
+- [ ] Base Repository 创建完成
+- [ ] User Repository 实现完整
+- [ ] Workspace Repository 实现完整
+- [ ] ChatSession Repository 实现完整
+- [ ] RefreshToken Repository 实现完整
+- [ ] 所有 Repository 导出正确
+
+---
+
+## 🔐 任务 1.3: 认证授权系统 (4 天)
+
+### 目标
+实现完整的认证授权系统，包括注册、登录、JWT Token 管理、OAuth 登录等。
+
+### 详细步骤
+
+#### Day 5: 认证服务实现
+
+**步骤 5.1: 创建认证服务** (2 小时)
+
+创建 `src/services/auth.service.ts`:
+
+```typescript
+import { User } from '@prisma/client';
+import { userRepository, refreshTokenRepository } from '../repositories/index.js';
+import {
+  hashPassword,
+  verifyPassword,
+  generateToken,
+} from '../utils/crypto.js';
+import {
+  generateTokenPair,
+  verifyToken,
+  JwtPayload,
+} from '../utils/jwt.js';
+import {
+  BadRequestError,
+  UnauthorizedError,
+  ConflictError,
+} from '../types/errors.js';
+
+export interface RegisterInput {
+  email: string;
+  username: string;
+  password: string;
+  displayName?: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface AuthResult {
+  user: Omit<User, 'passwordHash'>;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export class AuthService {
+  /**
+   * 用户注册
+   */
+  async register(input: RegisterInput): Promise<AuthResult> {
+    const { email, username, password, displayName } = input;
+
+    // 检查邮箱是否已存在
+    if (await userRepository.emailExists(email)) {
+      throw new ConflictError('Email already in use');
+    }
+
+    // 检查用户名是否已存在
+    if (await userRepository.usernameExists(username)) {
+      throw new ConflictError('Username already taken');
+    }
+
+    // 哈希密码
+    const passwordHash = await hashPassword(password);
+
+    // 创建用户
+    const user = await userRepository.create({
+      email,
+      username,
+      passwordHash,
+      displayName: displayName || username,
+      isActive: true,
+      isVerified: false,
+    });
+
+    // 生成 token
+    const tokens = generateTokenPair(user.id, user.email);
+
+    // 保存 refresh token
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // 30 天后过期
+
+    await refreshTokenRepository.create({
+      user: { connect: { id: user.id } },
+      token: tokens.refreshToken,
+      expiresAt,
+    });
+
+    // 返回结果（排除密码）
+    const { passwordHash: _, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
+  }
+
+  /**
+   * 用户登录
+   */
+  async login(input: LoginInput): Promise<AuthResult> {
+    const { email, password } = input;
+
+    // 查找用户
+    const user = await userRepository.findByEmail(email);
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedError('Invalid email or password');
+    }
+
+    // 验证密码
+    const isValidPassword = await verifyPassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      throw new UnauthorizedError('Invalid email or password');
+    }
+
+    // 检查账户状态
+    if (!user.isActive) {
+      throw new UnauthorizedError('Account is inactive');
+    }
+
+    // 生成 token
+    const tokens = generateTokenPair(user.id, user.email);
+
+    // 保存 refresh token
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await refreshTokenRepository.create({
+      user: { connect: { id: user.id } },
+      token: tokens.refreshToken,
+      expiresAt,
+    });
+
+    // 更新最后登录时间
+    await userRepository.updateLastLogin(user.id);
+
+    // 返回结果
+    const { passwordHash: _, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
+  }
+
+  /**
+   * 刷新访问令牌
+   */
+  async refreshAccessToken(refreshToken: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    // 验证 refresh token
+    const payload = verifyToken(refreshToken);
+    if (payload.type !== 'refresh') {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    // 检查 token 是否在数据库中
+    const isValid = await refreshTokenRepository.isValid(refreshToken);
+    if (!isValid) {
+      throw new UnauthorizedError('Refresh token expired or invalid');
+    }
+
+    // 生成新的 token 对
+    const tokens = generateTokenPair(payload.userId, payload.email);
+
+    // 删除旧的 refresh token
+    await refreshTokenRepository.delete({ token: refreshToken });
+
+    // 保存新的 refresh token
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await refreshTokenRepository.create({
+      user: { connect: { id: payload.userId } },
+      token: tokens.refreshToken,
+      expiresAt,
+    });
+
+    return tokens;
+  }
+
+  /**
+   * 登出
+   */
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      await refreshTokenRepository.delete({ token: refreshToken });
+    } catch (error) {
+      // 即使删除失败也不抛出错误
+    }
+  }
+
+  /**
+   * 登出所有设备
+   */
+  async logoutAll(userId: string): Promise<void> {
+    await refreshTokenRepository.deleteAllByUserId(userId);
+  }
+
+  /**
+   * 验证访问令牌并获取用户
+   */
+  async verifyAccessToken(token: string): Promise<User> {
+    const payload = verifyToken(token);
+
+    if (payload.type !== 'access') {
+      throw new UnauthorizedError('Invalid access token');
+    }
+
+    const user = await userRepository.findUnique({ id: payload.userId });
+    if (!user) {
+      throw new UnauthorizedError('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedError('Account is inactive');
+    }
+
+    return user;
+  }
+
+  /**
+   * OAuth 登录（Google）
+   */
+  async loginWithOAuth(provider: string, profile: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatar?: string;
+  }): Promise<AuthResult> {
+    // 查找现有用户
+    let user = await userRepository.findByOAuth(provider, profile.id);
+
+    // 如果不存在，创建新用户
+    if (!user) {
+      // 生成唯一用户名
+      let username = profile.email.split('@')[0];
+      let counter = 1;
+      while (await userRepository.usernameExists(username)) {
+        username = `${profile.email.split('@')[0]}${counter}`;
+        counter++;
+      }
+
+      user = await userRepository.create({
+        email: profile.email,
+        username,
+        displayName: profile.displayName,
+        avatar: profile.avatar,
+        oauthProvider: provider,
+        oauthId: profile.id,
+        isActive: true,
+        isVerified: true, // OAuth 登录自动验证
+      });
+    }
+
+    // 生成 token
+    const tokens = generateTokenPair(user.id, user.email);
+
+    // 保存 refresh token
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await refreshTokenRepository.create({
+      user: { connect: { id: user.id } },
+      token: tokens.refreshToken,
+      expiresAt,
+    });
+
+    // 更新最后登录时间
+    await userRepository.updateLastLogin(user.id);
+
+    const { passwordHash: _, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
+  }
+}
+
+export const authService = new AuthService();
+```
+
+**步骤 5.2: 创建认证中间件** (1.5 小时)
+
+创建 `src/middleware/auth.ts`:
+
+```typescript
+import { Request, Response, NextFunction } from 'express';
+import { authService } from '../services/auth.service.js';
+import { UnauthorizedError } from '../types/errors.js';
+import { User } from '@prisma/client';
+
+// 扩展 Express Request 类型
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
+  }
+}
+
+/**
+ * 认证中间件
+ */
+export async function authenticate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    // 从请求头获取 token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedError('No token provided');
+    }
+
+    const token = authHeader.substring(7);
+
+    // 验证 token 并获取用户
+    const user = await authService.verifyAccessToken(token);
+
+    // 将用户信息附加到请求对象
+    req.user = user;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 可选认证中间件
+ */
+export async function optionalAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const user = await authService.verifyAccessToken(token);
+      req.user = user;
+    }
+  } catch (error) {
+    // 忽略错误，继续执行
+  }
+
+  next();
+}
+
+/**
+ * 检查是否已认证
+ */
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    throw new UnauthorizedError('Authentication required');
+  }
+  next();
+}
+```
+
+**步骤 5.3: 创建 Validation Schemas** (1 小时)
+
+创建 `src/api/auth/schemas.ts`:
+
+```typescript
+import { z } from 'zod';
+
+// 注册 Schema
+export const registerSchema = {
+  body: z.object({
+    email: z.string().email('Invalid email format'),
+    username: z
+      .string()
+      .min(3, 'Username must be at least 3 characters')
+      .max(20, 'Username must not exceed 20 characters')
+      .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores and hyphens'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+    displayName: z.string().min(1).max(50).optional(),
+  }),
+};
+
+// 登录 Schema
+export const loginSchema = {
+  body: z.object({
+    email: z.string().email('Invalid email format'),
+    password: z.string().min(1, 'Password is required'),
+  }),
+};
+
+// 刷新 Token Schema
+export const refreshTokenSchema = {
+  body: z.object({
+    refreshToken: z.string().min(1, 'Refresh token is required'),
+  }),
+};
+```
+
+**验证清单 Day 5**:
+- [ ] AuthService 创建完成
+- [ ] 注册功能实现
+- [ ] 登录功能实现
+- [ ] Token 刷新功能实现
+- [ ] OAuth 登录功能实现
+- [ ] 认证中间件创建完成
+- [ ] Validation Schemas 定义完整
+
+---
+
+#### Day 6: 认证路由实现
+
+**步骤 6.1: 创建认证路由** (2 小时)
+
+创建 `src/api/auth/routes.ts`:
+
+```typescript
+import { Router } from 'express';
+import { authService } from '../../services/auth.service.js';
+import { validate } from '../../middleware/validate.js';
+import { authenticate } from '../../middleware/auth.js';
+import { ResponseHelper } from '../../utils/response.js';
+import { asyncHandler } from '../../middleware/errorHandler.js';
+import {
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
+} from './schemas.js';
+
+const router = Router();
+
+/**
+ * 注册
+ */
+router.post(
+  '/register',
+  validate(registerSchema),
+  asyncHandler(async (req, res) => {
+    const result = await authService.register(req.body);
+
+    ResponseHelper.created(res, {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
+  })
+);
+
+/**
+ * 登录
+ */
+router.post(
+  '/login',
+  validate(loginSchema),
+  asyncHandler(async (req, res) => {
+    const result = await authService.login(req.body);
+
+    ResponseHelper.success(res, {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
+  })
+);
+
+/**
+ * 刷新访问令牌
+ */
+router.post(
+  '/refresh',
+  validate(refreshTokenSchema),
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+    const tokens = await authService.refreshAccessToken(refreshToken);
+
+    ResponseHelper.success(res, tokens);
+  })
+);
+
+/**
+ * 登出
+ */
+router.post(
+  '/logout',
+  validate(refreshTokenSchema),
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+    await authService.logout(refreshToken);
+
+    ResponseHelper.success(res, { message: 'Logged out successfully' });
+  })
+);
+
+/**
+ * 登出所有设备
+ */
+router.post(
+  '/logout-all',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    await authService.logoutAll(req.user!.id);
+
+    ResponseHelper.success(res, { message: 'Logged out from all devices' });
+  })
+);
+
+/**
+ * 获取当前用户信息
+ */
+router.get(
+  '/me',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const { passwordHash, ...user } = req.user!;
+
+    ResponseHelper.success(res, { user });
+  })
+);
+
+export default router;
+```
+
+**步骤 6.2: 集成认证路由到应用** (30 分钟)
+
+更新 `src/app.ts`:
+
+```typescript
+import authRoutes from './api/auth/routes.js';
+
+// ... 其他导入
+
+export function createApp(): Express {
+  const app = express();
+
+  // ... 中间件设置
+
+  // ==================
+  // API 路由
+  // ==================
+
+  app.use('/api/auth', authRoutes);
+
+  // ... 其他路由和错误处理
+
+  return app;
+}
+```
+
+**步骤 6.3: 创建认证集成测试** (2 小时)
+
+创建 `tests/integration/auth.test.ts`:
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import request from 'supertest';
+import { createApp } from '../../src/app.js';
+import { prisma } from '../../src/utils/prisma.js';
+import { Express } from 'express';
+
+describe('Auth API Integration', () => {
+  let app: Express;
+
+  beforeAll(async () => {
+    app = createApp();
+  });
+
+  beforeEach(async () => {
+    // 清理数据库
+    await prisma.refreshToken.deleteMany();
+    await prisma.user.deleteMany();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  describe('POST /api/auth/register', () => {
+    it('should register a new user', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'Password123',
+          displayName: 'Test User',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.user.email).toBe('test@example.com');
+      expect(response.body.data.user.username).toBe('testuser');
+      expect(response.body.data.accessToken).toBeDefined();
+      expect(response.body.data.refreshToken).toBeDefined();
+      expect(response.body.data.user.passwordHash).toBeUndefined();
+    });
+
+    it('should reject duplicate email', async () => {
+      // 第一次注册
+      await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser1',
+          password: 'Password123',
+        });
+
+      // 第二次注册相同邮箱
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser2',
+          password: 'Password123',
+        });
+
+      expect(response.status).toBe(409);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.message).toContain('Email already in use');
+    });
+
+    it('should reject weak password', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'weak',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('POST /api/auth/login', () => {
+    beforeEach(async () => {
+      // 创建测试用户
+      await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'Password123',
+        });
+    });
+
+    it('should login with correct credentials', async () => {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'test@example.com',
+          password: 'Password123',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.user.email).toBe('test@example.com');
+      expect(response.body.data.accessToken).toBeDefined();
+      expect(response.body.data.refreshToken).toBeDefined();
+    });
+
+    it('should reject wrong password', async () => {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'test@example.com',
+          password: 'WrongPassword123',
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should reject non-existent user', async () => {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'nonexistent@example.com',
+          password: 'Password123',
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('POST /api/auth/refresh', () => {
+    it('should refresh access token', async () => {
+      // 注册并获取 tokens
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'Password123',
+        });
+
+      const { refreshToken } = registerResponse.body.data;
+
+      // 刷新 token
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.accessToken).toBeDefined();
+      expect(response.body.data.refreshToken).toBeDefined();
+      expect(response.body.data.accessToken).not.toBe(registerResponse.body.data.accessToken);
+    });
+
+    it('should reject invalid refresh token', async () => {
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: 'invalid-token' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('GET /api/auth/me', () => {
+    it('should return current user with valid token', async () => {
+      // 注册并获取 token
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'Password123',
+        });
+
+      const { accessToken } = registerResponse.body.data;
+
+      // 获取当前用户
+      const response = await request(app)
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.user.email).toBe('test@example.com');
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .get('/api/auth/me');
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('POST /api/auth/logout', () => {
+    it('should logout successfully', async () => {
+      // 注册并获取 tokens
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'Password123',
+        });
+
+      const { refreshToken } = registerResponse.body.data;
+
+      // 登出
+      const response = await request(app)
+        .post('/api/auth/logout')
+        .send({ refreshToken });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+
+      // 尝试使用已登出的 refresh token
+      const refreshResponse = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken });
+
+      expect(refreshResponse.status).toBe(401);
+    });
+  });
+});
+```
+
+运行测试:
+
+```bash
+pnpm test tests/integration/auth.test.ts
+```
+
+**验证清单 Day 6**:
+- [ ] 认证路由创建完成
+- [ ] 所有认证端点实现
+- [ ] 路由集成到应用
+- [ ] 集成测试编写完成
+- [ ] 所有测试通过
+
+---
+
+## 📝 总结
+
+### 阶段 1 成果
+
+**已完成任务**:
+1. ✅ 完整的 Express 后端框架
+2. ✅ 环境配置和验证系统
+3. ✅ 日志系统（Winston）
+4. ✅ 错误处理机制
+5. ✅ 数据库 Schema 设计（Prisma）
+6. ✅ Repository 模式实现
+7. ✅ 完整的认证授权系统
+8. ✅ JWT Token 管理
+9. ✅ 请求验证和中间件
+10. ✅ 工具函数库
+
+**代码统计**:
+- 总文件数: ~30 个
+- 总代码行数: ~3,500 行
+- 测试覆盖率: 70%+
+
+**API 端点**:
+- `POST /api/auth/register` - 用户注册
+- `POST /api/auth/login` - 用户登录
+- `POST /api/auth/refresh` - 刷新 Token
+- `POST /api/auth/logout` - 登出
+- `POST /api/auth/logout-all` - 登出所有设备
+- `GET /api/auth/me` - 获取当前用户
+- `GET /health` - 健康检查
+- `GET /api` - API 信息
+
+### 下一步
+
+**阶段 2 预览**:
+- 集成 @google/gemini-cli-core
+- 实现 Gemini Client 管理
+- 创建 Tool Adapters
+- 实现 ChatService
+
+### 最终验证清单
+
+运行完整验证:
+
+```bash
+# 1. 启动服务器
+pnpm dev
+
+# 2. 测试健康检查
+curl http://localhost:3000/health
+
+# 3. 测试注册
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "demo@example.com",
+    "username": "demouser",
+    "password": "Password123",
+    "displayName": "Demo User"
+  }'
+
+# 4. 测试登录
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "demo@example.com",
+    "password": "Password123"
+  }'
+
+# 5. 运行所有测试
+pnpm test
+
+# 6. 检查测试覆盖率
+pnpm test:coverage
+
+# 7. 类型检查
+pnpm typecheck
+
+# 8. 代码检查
+pnpm lint
+```
+
+**最终检查清单**:
+- [ ] 所有依赖安装成功
+- [ ] 数据库连接正常
+- [ ] 所有测试通过
+- [ ] 测试覆盖率 > 70%
+- [ ] 无 TypeScript 错误
+- [ ] 无 ESLint 错误
+- [ ] API 文档完整
+- [ ] 环境变量配置正确
+- [ ] 日志输出正常
+- [ ] 错误处理正确
+- [ ] 性能测试通过
+
+---
+
+**🎉 阶段 1 完成！**
+
+你已经成功完成了核心基础设施的搭建，包括完整的后端框架和认证系统。现在可以继续进行阶段 2 的开发了。
 
